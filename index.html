@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="zh-MY">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PBD 评估系统 - 双端视图切换器</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <style>
+    html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; background-color: #0f172a; font-family: system-ui, -apple-system, sans-serif; }
+    
+    #view-container {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background-color: #1e293b;
+      padding: 12px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* 设备模拟外壳 */
+    .device-shell {
+      position: relative;
+      background: #ffffff;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+      overflow: hidden;
+    }
+
+    /* 💻 电脑端样式 */
+    .mode-desktop .device-shell {
+      width: 100%;
+      height: 100%;
+      border-radius: 8px;
+      border: none;
+    }
+    .mode-desktop iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+
+    /* 📱 平板端样式 (768px) */
+    .mode-tablet .device-shell {
+      width: 768px;
+      height: 960px;
+      max-height: calc(100vh - 80px);
+      border-radius: 24px;
+      border: 10px solid #0f172a;
+      outline: 2px solid #334155;
+    }
+
+    /* 📱 手机端样式 (390px) */
+    .mode-mobile .device-shell {
+      width: 390px;
+      height: 780px;
+      max-height: calc(100vh - 80px);
+      border-radius: 36px;
+      border: 12px solid #0f172a;
+      outline: 2px solid #334155;
+    }
+
+    /* 等比例防缩挤模式 */
+    .scale-fit .device-shell iframe {
+      border: none;
+      transform-origin: 0 0;
+    }
+    
+    /* 手机端防折叠整洁缩放 (以 1150px 宽画质等比例放进 370px) */
+    .mode-mobile.scale-fit iframe {
+      width: 1150px;
+      height: 2300px;
+      transform: scale(0.3217);
+    }
+
+    /* 平板端防折叠整洁缩放 */
+    .mode-tablet.scale-fit iframe {
+      width: 1200px;
+      height: 1500px;
+      transform: scale(0.6233);
+    }
+
+    /* 原始适应模式 */
+    .scale-native iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+      transform: none !important;
+    }
+  </style>
+</head>
+<body class="flex flex-col h-screen">
+
+  <!-- 顶部控制栏 -->
+  <header class="bg-indigo-950 text-white border-b border-indigo-900/60 px-4 py-2 flex flex-wrap items-center justify-between gap-3 shadow-lg z-50">
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center font-bold text-white shadow">
+        <i class="fa-solid fa-display"></i>
+      </div>
+      <div>
+        <h1 class="text-sm font-bold tracking-wide text-indigo-100">PBD 评估系统模式切换器</h1>
+        <p class="text-[11px] text-indigo-300">防挤压防变形增强版</p>
+      </div>
+    </div>
+
+    <!-- 设备模式切换 -->
+    <div class="flex items-center bg-indigo-900/80 p-1 rounded-xl border border-indigo-700/50 text-xs font-medium">
+      <button onclick="setDevice('desktop')" id="btn-desktop" class="px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 bg-indigo-600 text-white shadow">
+        <i class="fa-solid fa-desktop"></i> 💻 电脑端
+      </button>
+      <button onclick="setDevice('tablet')" id="btn-tablet" class="px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 text-indigo-200 hover:text-white hover:bg-indigo-800/50">
+        <i class="fa-solid fa-tablet-screen-button"></i> 📱 平板端
+      </button>
+      <button onclick="setDevice('mobile')" id="btn-mobile" class="px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 text-indigo-200 hover:text-white hover:bg-indigo-800/50">
+        <i class="fa-solid fa-mobile-screen"></i> 📱 手机端
+      </button>
+    </div>
+
+    <!-- 排版显示方式选择 (解决挤在一堆的关键) -->
+    <div class="flex items-center gap-2">
+      <label class="text-xs text-indigo-200 font-medium">排版方式：</label>
+      <select id="scale-mode-select" onchange="setScaleMode(this.value)" class="bg-indigo-900 border border-indigo-700 text-white text-xs rounded-lg px-2.5 py-1.5 font-medium focus:ring-2 focus:ring-indigo-500">
+        <option value="fit" selected>✨ 完整等比例缩小 (清晰不乱搞，推荐)</option>
+        <option value="native">📐 手机原生折叠版 (按钮自动分行)</option>
+      </select>
+      <a href="PBD HTML UPDATE.html" target="_blank" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-xs font-medium transition flex items-center gap-1">
+        <i class="fa-solid fa-arrow-up-right-from-square"></i> 原页
+      </a>
+    </div>
+  </header>
+
+  <!-- 内容框架容器 -->
+  <main id="view-container" class="mode-desktop scale-fit">
+    <div class="device-shell">
+      <iframe id="pbd-frame" src="PBD HTML UPDATE.html" title="PBD System"></iframe>
+    </div>
+  </main>
+
+  <script>
+    let currentDevice = 'desktop';
+    let currentScale = 'fit';
+
+    function updateLayout() {
+      const container = document.getElementById('view-container');
+      container.className = `mode-${currentDevice} scale-${currentScale}`;
+
+      // 更新按钮状态
+      ['desktop', 'tablet', 'mobile'].forEach(dev => {
+        const btn = document.getElementById(`btn-${dev}`);
+        if (dev === currentDevice) {
+          btn.className = 'px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 bg-indigo-600 text-white shadow';
+        } else {
+          btn.className = 'px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 text-indigo-200 hover:text-white hover:bg-indigo-800/50';
+        }
+      });
+    }
+
+    function setDevice(device) {
+      currentDevice = device;
+      updateLayout();
+    }
+
+    function setScaleMode(mode) {
+      currentScale = mode;
+      updateLayout();
+    }
+  </script>
+</body>
+</html>
