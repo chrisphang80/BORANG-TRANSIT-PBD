@@ -2,170 +2,637 @@
 <html lang="zh-MY">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PBD 评估系统 - 双端视图切换器</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>PBD 手机端评估系统</title>
+  
+  <!-- Tailwind CSS & Chart.js & FontAwesome -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  
   <style>
-    html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; background-color: #0f172a; font-family: system-ui, -apple-system, sans-serif; }
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap');
+    body { font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; background-color: #f1f5f9; -webkit-tap-highlight-color: transparent; }
     
-    #view-container {
-      flex: 1;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      background-color: #1e293b;
-      padding: 12px;
-      overflow: hidden;
-      position: relative;
-    }
-
-    /* 设备模拟外壳 */
-    .device-shell {
-      position: relative;
-      background: #ffffff;
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-      overflow: hidden;
-    }
-
-    /* 💻 电脑端样式 */
-    .mode-desktop .device-shell {
-      width: 100%;
-      height: 100%;
-      border-radius: 8px;
-      border: none;
-    }
-    .mode-desktop iframe {
-      width: 100%;
-      height: 100%;
-      border: none;
-    }
-
-    /* 📱 平板端样式 (768px) */
-    .mode-tablet .device-shell {
-      width: 768px;
-      height: 960px;
-      max-height: calc(100vh - 80px);
-      border-radius: 24px;
-      border: 10px solid #0f172a;
-      outline: 2px solid #334155;
-    }
-
-    /* 📱 手机端样式 (390px) */
-    .mode-mobile .device-shell {
-      width: 390px;
-      height: 780px;
-      max-height: calc(100vh - 80px);
-      border-radius: 36px;
-      border: 12px solid #0f172a;
-      outline: 2px solid #334155;
-    }
-
-    /* 等比例防缩挤模式 */
-    .scale-fit .device-shell iframe {
-      border: none;
-      transform-origin: 0 0;
-    }
+    /* 触控反馈 */
+    .touch-active:active { transform: scale(0.97); opacity: 0.9; }
     
-    /* 手机端防折叠整洁缩放 (以 1150px 宽画质等比例放进 370px) */
-    .mode-mobile.scale-fit iframe {
-      width: 1150px;
-      height: 2300px;
-      transform: scale(0.3217);
-    }
+    /* TP 按钮颜色定义 */
+    .tp-btn { border-radius: 8px; font-weight: 700; font-size: 11px; padding: 6px 0; text-align: center; border: 1px solid #cbd5e1; background-color: #ffffff; color: #475569; transition: all 0.2s; }
+    .tp-btn.active-TP1 { background-color: #fee2e2; color: #991b1b; border-color: #fca5a5; }
+    .tp-btn.active-TP2 { background-color: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .tp-btn.active-TP3 { background-color: #fef9c3; color: #854d0e; border-color: #fde047; }
+    .tp-btn.active-TP4 { background-color: #dcfce7; color: #166534; border-color: #86efac; }
+    .tp-btn.active-TP5 { background-color: #dbeafe; color: #1e40af; border-color: #93c5fd; }
+    .tp-btn.active-TP6 { background-color: #f3e8ff; color: #6b21a8; border-color: #d8b4fe; }
 
-    /* 平板端防折叠整洁缩放 */
-    .mode-tablet.scale-fit iframe {
-      width: 1200px;
-      height: 1500px;
-      transform: scale(0.6233);
-    }
-
-    /* 原始适应模式 */
-    .scale-native iframe {
-      width: 100%;
-      height: 100%;
-      border: none;
-      transform: none !important;
-    }
+    /* 隐藏滚动条 */
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
   </style>
 </head>
-<body class="flex flex-col h-screen">
+<body class="flex flex-col h-screen overflow-hidden text-slate-800">
 
-  <!-- 顶部控制栏 -->
-  <header class="bg-indigo-950 text-white border-b border-indigo-900/60 px-4 py-2 flex flex-wrap items-center justify-between gap-3 shadow-lg z-50">
-    <div class="flex items-center gap-3">
-      <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center font-bold text-white shadow">
-        <i class="fa-solid fa-display"></i>
+  <!-- 1. 顶部状态栏 Header -->
+  <header class="bg-indigo-900 text-white pt-3 pb-3 px-4 shadow-md shrink-0">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-2.5 min-w-0">
+        <div class="w-8 h-8 bg-indigo-700/80 rounded-lg flex items-center justify-center text-indigo-200 shrink-0">
+          <i class="fa-solid fa-graduation-cap text-base"></i>
+        </div>
+        <div class="truncate">
+          <h1 id="header-school-name" class="text-xs font-bold truncate text-indigo-100">SJK(C) PBD 评估系统</h1>
+          <p id="header-sub-info" class="text-[10px] text-indigo-300 font-medium truncate">三月 | LEE KIAT CHEW | 3M</p>
+        </div>
       </div>
-      <div>
-        <h1 class="text-sm font-bold tracking-wide text-indigo-100">PBD 评估系统模式切换器</h1>
-        <p class="text-[11px] text-indigo-300">防挤压防变形增强版</p>
-      </div>
-    </div>
-
-    <!-- 设备模式切换 -->
-    <div class="flex items-center bg-indigo-900/80 p-1 rounded-xl border border-indigo-700/50 text-xs font-medium">
-      <button onclick="setDevice('desktop')" id="btn-desktop" class="px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 bg-indigo-600 text-white shadow">
-        <i class="fa-solid fa-desktop"></i> 💻 电脑端
-      </button>
-      <button onclick="setDevice('tablet')" id="btn-tablet" class="px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 text-indigo-200 hover:text-white hover:bg-indigo-800/50">
-        <i class="fa-solid fa-tablet-screen-button"></i> 📱 平板端
-      </button>
-      <button onclick="setDevice('mobile')" id="btn-mobile" class="px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 text-indigo-200 hover:text-white hover:bg-indigo-800/50">
-        <i class="fa-solid fa-mobile-screen"></i> 📱 手机端
-      </button>
-    </div>
-
-    <!-- 排版显示方式选择 (解决挤在一堆的关键) -->
-    <div class="flex items-center gap-2">
-      <label class="text-xs text-indigo-200 font-medium">排版方式：</label>
-      <select id="scale-mode-select" onchange="setScaleMode(this.value)" class="bg-indigo-900 border border-indigo-700 text-white text-xs rounded-lg px-2.5 py-1.5 font-medium focus:ring-2 focus:ring-indigo-500">
-        <option value="fit" selected>✨ 完整等比例缩小 (清晰不乱搞，推荐)</option>
-        <option value="native">📐 手机原生折叠版 (按钮自动分行)</option>
+      
+      <!-- 快速年级选择器 -->
+      <select id="quick-grade-select" onchange="changeGrade(this.value)" class="bg-indigo-950 border border-indigo-700 text-xs font-bold text-white rounded-lg px-2 py-1.5 focus:outline-none shrink-0">
+        <option value="1">1 年级</option>
+        <option value="2">2 年级</option>
+        <option value="3" selected>3 年级</option>
+        <option value="4">4 年级</option>
+        <option value="5">5 年级</option>
+        <option value="6">6 年级</option>
       </select>
-      <a href="PBD HTML UPDATE.html" target="_blank" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-xs font-medium transition flex items-center gap-1">
-        <i class="fa-solid fa-arrow-up-right-from-square"></i> 原页
-      </a>
+    </div>
+
+    <!-- 科目与单元滑动选择器Bar -->
+    <div class="mt-2.5 flex items-center gap-2">
+      <!-- 科目切按钮 -->
+      <button onclick="toggleSubject()" id="subject-toggle-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-2.5 py-1.5 rounded-lg shrink-0 flex items-center gap-1 shadow-sm touch-active">
+        <i class="fa-solid fa-book"></i> <span id="subject-label">科学</span>
+      </button>
+
+      <!-- 单元选择框 -->
+      <select id="unit-select" onchange="onUnitChange()" class="w-full bg-indigo-950/80 border border-indigo-700 text-xs font-semibold text-indigo-100 rounded-lg px-2 py-1.5 truncate focus:outline-none">
+        <!-- 动态生成 -->
+      </select>
     </div>
   </header>
 
-  <!-- 内容框架容器 -->
-  <main id="view-container" class="mode-desktop scale-fit">
-    <div class="device-shell">
-      <iframe id="pbd-frame" src="PBD HTML UPDATE.html" title="PBD System"></iframe>
-    </div>
+  <!-- 2. 主体可滚动内容区域 Main Scroll Area -->
+  <main class="flex-1 overflow-y-auto p-3 space-y-3 pb-20 no-scrollbar" id="main-content">
+
+    <!-- PAGE 1: 评估操作卡片列表 (Transit) -->
+    <section id="tab-content-transit" class="space-y-3">
+      
+      <!-- 单元概览 & 批量控制栏 -->
+      <div class="bg-white rounded-xl p-3 shadow-sm border border-slate-200 space-y-2.5">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">单元控制中心</span>
+          <span id="unit-sp-count-badge" class="text-[11px] bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full font-bold">SP 数量: 0</span>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <button onclick="batchToggleAllSP(true)" class="py-2 bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-bold rounded-lg touch-active flex items-center justify-center gap-1">
+            <i class="fa-solid fa-square-check"></i> 一键全选 SP
+          </button>
+          <button onclick="batchToggleAllSP(false)" class="py-2 bg-slate-100 border border-slate-200 text-slate-600 text-xs font-bold rounded-lg touch-active flex items-center justify-center gap-1">
+            <i class="fa-regular fa-square"></i> 清空当前 SP
+          </button>
+        </div>
+      </div>
+
+      <!-- 学生搜索栏 -->
+      <div class="relative">
+        <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+        <input type="text" id="student-search-input" onkeyup="filterStudents(this.value)" placeholder="搜索学生姓名..." class="w-full pl-8 pr-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm">
+      </div>
+
+      <!-- 学生评级列表容器 -->
+      <div id="student-cards-container" class="space-y-2.5">
+        <!-- 动态渲染学生卡片 -->
+      </div>
+    </section>
+
+    <!-- PAGE 2: 数据分析 (Analytics) -->
+    <section id="tab-content-analytics" class="space-y-3 hidden">
+      <!-- KPI 卡片 -->
+      <div class="grid grid-cols-2 gap-2">
+        <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+          <p class="text-[10px] font-bold text-slate-400 uppercase">评估学生总数</p>
+          <h3 id="m-kpi-total" class="text-xl font-bold text-slate-800 mt-0.5">0 人</h3>
+        </div>
+        <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+          <p class="text-[10px] font-bold text-slate-400 uppercase">达标率 (TP3+)</p>
+          <h3 id="m-kpi-pass" class="text-xl font-bold text-emerald-600 mt-0.5">0%</h3>
+        </div>
+        <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+          <p class="text-[10px] font-bold text-slate-400 uppercase">需辅导 (TP1-2)</p>
+          <h3 id="m-kpi-help" class="text-xl font-bold text-rose-600 mt-0.5">0 人次</h3>
+        </div>
+        <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+          <p class="text-[10px] font-bold text-slate-400 uppercase">平均掌握级别</p>
+          <h3 id="m-kpi-avg" class="text-xl font-bold text-indigo-600 mt-0.5">TP 0.0</h3>
+        </div>
+      </div>
+
+      <!-- 图表卡片 -->
+      <div class="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm space-y-2">
+        <h4 class="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+          <i class="fa-solid fa-chart-pie text-indigo-600"></i> TP 级别整体分布情况
+        </h4>
+        <div class="h-48 relative">
+          <canvas id="mobile-tp-chart"></canvas>
+        </div>
+      </div>
+
+      <!-- 辅导追踪卡片 -->
+      <div class="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm space-y-2">
+        <h4 class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+          <i class="fa-solid fa-triangle-exclamation text-amber-500"></i> 需关注/辅导名单 (TP1-TP3)
+        </h4>
+        <div id="m-intervention-list" class="space-y-1.5 text-xs">
+          <!-- 动态渲染 -->
+        </div>
+      </div>
+    </section>
+
+    <!-- PAGE 3: 系统设置 (Settings) -->
+    <section id="tab-content-settings" class="space-y-3 hidden">
+      <!-- 教师与班级 -->
+      <div class="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm space-y-3">
+        <h4 class="text-xs font-bold text-indigo-900 border-b border-slate-100 pb-2">当前 <span id="m-setting-grade-label">3</span> 年级参数设置</h4>
+        <div class="space-y-2">
+          <div>
+            <label class="block text-[10px] font-bold text-slate-500 mb-1">任课教师姓名 (Nama Guru)</label>
+            <input type="text" id="m-input-teacher" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs font-semibold focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-[10px] font-bold text-slate-500 mb-1">班级名称 (Kelas)</label>
+            <input type="text" id="m-input-class" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs font-semibold focus:outline-none">
+          </div>
+          <button onclick="saveMobileSettings()" class="w-full py-2 bg-indigo-600 text-white rounded-lg text-xs font-bold touch-active shadow">
+            保存教师与班级设置
+          </button>
+        </div>
+      </div>
+
+      <!-- 学生添加 -->
+      <div class="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm space-y-2.5">
+        <h4 class="text-xs font-bold text-slate-800">学生名单管理 (<span id="m-student-count">0</span> 人)</h4>
+        <div class="flex gap-2">
+          <input type="text" id="m-add-student-input" placeholder="新增学生姓名..." class="flex-1 bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs focus:outline-none">
+          <button onclick="addStudentMobile()" class="px-3 bg-emerald-600 text-white rounded-lg text-xs font-bold touch-active">添加</button>
+        </div>
+      </div>
+
+      <!-- 数据备份与导出 -->
+      <div class="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm space-y-2">
+        <h4 class="text-xs font-bold text-slate-800">数据备份与导出</h4>
+        <div class="grid grid-cols-2 gap-2">
+          <button onclick="exportBackupJSON()" class="py-2 bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold rounded-lg touch-active flex items-center justify-center gap-1">
+            <i class="fa-solid fa-download text-indigo-600"></i> 导出 JSON 备份
+          </button>
+          <button onclick="document.getElementById('m-file-input').click()" class="py-2 bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-bold rounded-lg touch-active flex items-center justify-center gap-1">
+            <i class="fa-solid fa-upload"></i> 恢复 JSON 备份
+          </button>
+          <input type="file" id="m-file-input" accept=".json" onchange="importBackupJSON(event)" class="hidden">
+        </div>
+        <button onclick="exportDataCSV()" class="w-full py-2 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-lg touch-active flex items-center justify-center gap-1">
+          <i class="fa-solid fa-file-excel"></i> 导出成绩 CSV 电子表格
+        </button>
+      </div>
+    </section>
+
   </main>
 
+  <!-- 3. 底部 App 风格导航栏 Bottom Nav Bar -->
+  <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-6 py-2 flex justify-around items-center z-40 shadow-lg">
+    <button onclick="switchTab('transit')" id="nav-btn-transit" class="flex flex-col items-center gap-0.5 text-indigo-600">
+      <i class="fa-solid fa-list-check text-lg"></i>
+      <span class="text-[10px] font-bold">评估</span>
+    </button>
+    <button onclick="switchTab('analytics')" id="nav-btn-analytics" class="flex flex-col items-center gap-0.5 text-slate-400">
+      <i class="fa-solid fa-chart-pie text-lg"></i>
+      <span class="text-[10px] font-bold">分析</span>
+    </button>
+    <button onclick="switchTab('settings')" id="nav-btn-settings" class="flex flex-col items-center gap-0.5 text-slate-400">
+      <i class="fa-solid fa-sliders text-lg"></i>
+      <span class="text-[10px] font-bold">设置</span>
+    </button>
+  </nav>
+
+  <!-- 浮动 Toast 提示 -->
+  <div id="toast" class="fixed top-4 left-1/2 -translate-x-1/2 bg-slate-900/90 text-white px-4 py-2 rounded-full text-xs font-medium shadow-xl transition-all duration-300 opacity-0 pointer-events-none z-50 flex items-center gap-1.5">
+    <i class="fa-solid fa-circle-check text-emerald-400"></i>
+    <span id="toast-msg">已完成保存</span>
+  </div>
+
   <script>
-    let currentDevice = 'desktop';
-    let currentScale = 'fit';
+    /****************************************************************
+     * 课程数据与状态定义
+     ****************************************************************/
+    const CURRICULUM = {
+      science: {
+        "1": [{ id: "1.0", name: "1.0 科学技能", sp: ["1.1.1","1.1.2","1.2.1"] }, { id: "2.0", name: "2.0 科学室规则", sp: ["2.1.1"] }],
+        "2": [{ id: "1.0", name: "1.0 科学技能", sp: ["1.1.1","1.1.2","1.1.3"] }, { id: "3.0", name: "3.0 人类", sp: ["3.1.1","3.1.2"] }],
+        "3": [
+          { id: "1.0", name: "1.0 科学技能", sp: ["1.1.1","1.1.2","1.1.3","1.1.4","1.1.5","1.1.6"] },
+          { id: "2.0", name: "2.0 科学室规则", sp: ["2.1.1"] },
+          { id: "3.0", name: "3.0 人类", sp: ["3.1.1","3.1.2","3.1.3","3.1.4"] },
+          { id: "4.0", name: "4.0 动物", sp: ["4.1.1","4.1.2","4.1.3"] },
+          { id: "5.0", name: "5.0 植物", sp: ["5.1.1","5.1.2"] }
+        ],
+        "4": [{ id: "1.0", name: "1.0 科学技能", sp: ["1.1.1","1.1.2"] }, { id: "2.0", name: "2.0 人类", sp: ["2.1.1","2.1.2"] }],
+        "5": [{ id: "1.0", name: "1.0 科学技能", sp: ["1.1.1","1.1.2"] }, { id: "2.0", name: "2.0 人类", sp: ["2.1.1","2.1.2"] }],
+        "6": [{ id: "1.0", name: "1.0 科学技能", sp: ["1.1.1","1.1.2"] }, { id: "2.0", name: "2.0 人类", sp: ["2.1.1","2.1.2"] }]
+      },
+      math: {
+        "1": [{ id: "1.0", name: "1.0 100以内的整数", sp: ["1.1.1","1.2.1"] }],
+        "2": [{ id: "1.0", name: "1.0 1000以内的整数", sp: ["1.1.1","1.2.1"] }],
+        "3": [
+          { id: "1.0", name: "1.0 10 000以内的整数", sp: ["1.1.1","1.1.2","1.2.1","1.3.1"] },
+          { id: "2.0", name: "2.0 基本运算", sp: ["2.1.1","2.1.2","2.2.1"] },
+          { id: "3.0", name: "3.0 分数和小数", sp: ["3.1.1","3.1.2"] }
+        ],
+        "4": [{ id: "1.0", name: "1.0 整数与运算", sp: ["1.1.1","1.2.1"] }],
+        "5": [{ id: "1.0", name: "1.0 整数与运算", sp: ["1.1.1","1.2.1"] }],
+        "6": [{ id: "1.0", name: "1.0 整数与基本数目", sp: ["1.1.1","1.2.1"] }]
+      }
+    };
 
-    function updateLayout() {
-      const container = document.getElementById('view-container');
-      container.className = `mode-${currentDevice} scale-${currentScale}`;
+    const DEFAULT_NAMES = ["陈俊轩", "陈健豪", "覃家乐", "佐斯华", "刘俊霆", "李弘轩", "吕向廷", "廖健翔", "林铭浩", "卢立范", "罗山", "徐榆宗"];
 
-      // 更新按钮状态
-      ['desktop', 'tablet', 'mobile'].forEach(dev => {
-        const btn = document.getElementById(`btn-${dev}`);
-        if (dev === currentDevice) {
-          btn.className = 'px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 bg-indigo-600 text-white shadow';
-        } else {
-          btn.className = 'px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 text-indigo-200 hover:text-white hover:bg-indigo-800/50';
-        }
+    let currentSubject = "science";
+    let currentGrade = "3";
+    let appSettings = {
+      schoolName: "SJK(C) CHUNG HUA RANTAU",
+      teachers: { "3": { teacher: "LEE KIAT CHEW", className: "3M" } }
+    };
+    let gradeDataStore = {};
+    let chartInstance = null;
+
+    /****************************************************************
+     * 初始化与本地数据读取
+     ****************************************************************/
+    function init() {
+      loadSettings();
+      loadGradeData(currentSubject, currentGrade);
+      renderHeader();
+      setupUnitDropdown();
+      renderStudentCards();
+    }
+
+    function loadSettings() {
+      const saved = localStorage.getItem("pbd_mobile_settings");
+      if (saved) {
+        try { appSettings = JSON.parse(saved); } catch(e){}
+      }
+    }
+
+    function saveSettings() {
+      localStorage.setItem("pbd_mobile_settings", JSON.stringify(appSettings));
+    }
+
+    function loadGradeData(sub, grade) {
+      const key = `pbd_data_${sub}_grade_${grade}`;
+      const saved = localStorage.getItem(key);
+      if (saved) {
+        try { gradeDataStore[grade] = JSON.parse(saved); } catch(e){ gradeDataStore[grade] = createDefaults(); }
+      } else {
+        gradeDataStore[grade] = createDefaults();
+      }
+    }
+
+    function saveCurrentGradeData() {
+      const key = `pbd_data_${currentSubject}_grade_${currentGrade}`;
+      localStorage.setItem(key, JSON.stringify(gradeDataStore[currentGrade]));
+    }
+
+    function createDefaults() {
+      return DEFAULT_NAMES.map((n, i) => ({ id: "STU_" + (i + 1), name: n, evaluations: {} }));
+    }
+
+    /****************************************************************
+     * 界面渲染逻辑 (UI Rendering)
+     ****************************************************************/
+    function renderHeader() {
+      const teacherObj = appSettings.teachers[currentGrade] || { teacher: "未设置教师", className: currentGrade + "M" };
+      document.getElementById("header-school-name").innerText = appSettings.schoolName;
+      document.getElementById("header-sub-info").innerText = `${currentSubject === 'science' ? '科学' : '数学'} | ${teacherObj.teacher} | ${teacherObj.className}`;
+      document.getElementById("subject-label").innerText = currentSubject === 'science' ? '科学' : '数学';
+      document.getElementById("m-setting-grade-label").innerText = currentGrade;
+      document.getElementById("m-input-teacher").value = teacherObj.teacher || '';
+      document.getElementById("m-input-class").value = teacherObj.className || '';
+    }
+
+    function setupUnitDropdown() {
+      const select = document.getElementById("unit-select");
+      select.innerHTML = "";
+      const units = CURRICULUM[currentSubject][currentGrade] || [];
+      units.forEach(u => {
+        const opt = document.createElement("option");
+        opt.value = u.id;
+        opt.textContent = u.name;
+        select.appendChild(opt);
       });
     }
 
-    function setDevice(device) {
-      currentDevice = device;
-      updateLayout();
+    function renderStudentCards() {
+      const container = document.getElementById("student-cards-container");
+      container.innerHTML = "";
+
+      const unitId = document.getElementById("unit-select").value;
+      const units = CURRICULUM[currentSubject][currentGrade] || [];
+      const unitObj = units.find(u => u.id === unitId);
+
+      if (!unitObj) return;
+
+      document.getElementById("unit-sp-count-badge").innerText = `SP 数量: ${unitObj.sp.length}`;
+
+      const students = gradeDataStore[currentGrade] || [];
+      document.getElementById("m-student-count").innerText = students.length;
+
+      students.forEach((s, idx) => {
+        const evalData = s.evaluations[unitId] || { sp: {}, tp: "" };
+        const checkedSpCount = unitObj.sp.filter(sp => evalData.sp[sp]).length;
+        const totalSp = unitObj.sp.length;
+        const percent = totalSp > 0 ? Math.round((checkedSpCount / totalSp) * 100) : 0;
+
+        const card = document.createElement("div");
+        card.className = "bg-white rounded-xl p-3 shadow-sm border border-slate-200 space-y-2.5 student-card-item";
+        card.setAttribute("data-name", s.name);
+
+        card.innerHTML = `
+          <!-- 卡片头部：姓名与完成度 -->
+          <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+            <div class="flex items-center gap-2">
+              <span class="w-5 h-5 bg-slate-100 rounded-full text-[10px] font-bold text-slate-500 flex items-center justify-center">${idx + 1}</span>
+              <h3 class="text-sm font-bold text-slate-800">${s.name}</h3>
+            </div>
+            <div class="text-right">
+              <span class="text-[11px] font-bold text-indigo-600">${checkedSpCount}/${totalSp} SP (${percent}%)</span>
+            </div>
+          </div>
+
+          <!-- SP 勾选点按标签群 -->
+          <div>
+            <p class="text-[10px] font-bold text-slate-400 mb-1.5 uppercase">学习标准 (SP) 评估</p>
+            <div class="flex flex-wrap gap-1.5">
+              ${unitObj.sp.map(sp => {
+                const isChecked = !!evalData.sp[sp];
+                return `
+                  <button onclick="toggleSPMobile('${s.id}', '${unitId}', '${sp}')" class="px-2.5 py-1.5 rounded-lg text-xs font-bold border transition touch-active flex items-center gap-1 ${isChecked ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-50 text-slate-600 border-slate-200'}">
+                    <i class="fa-solid ${isChecked ? 'fa-square-check' : 'fa-square'} text-[11px]"></i> ${sp}
+                  </button>
+                `;
+              }).join('')}
+            </div>
+          </div>
+
+          <!-- TP 选择大按钮组 -->
+          <div>
+            <p class="text-[10px] font-bold text-slate-400 mb-1.5 uppercase">单元整体掌握级别 (TP)</p>
+            <div class="grid grid-cols-6 gap-1">
+              ${['TP1','TP2','TP3','TP4','TP5','TP6'].map(tp => `
+                <button onclick="setTPMobile('${s.id}', '${unitId}', '${tp}')" class="tp-btn ${evalData.tp === tp ? 'active-' + tp + ' ring-2 ring-indigo-500/50' : ''}">
+                  ${tp}
+                </button>
+              `).join('')}
+            </div>
+          </div>
+        `;
+        container.appendChild(card);
+      });
     }
 
-    function setScaleMode(mode) {
-      currentScale = mode;
-      updateLayout();
+    /****************************************************************
+     * 交互逻辑 (Actions)
+     ****************************************************************/
+    function toggleSPMobile(stuId, unitId, sp) {
+      const student = gradeDataStore[currentGrade].find(s => s.id === stuId);
+      if (!student) return;
+      if (!student.evaluations[unitId]) student.evaluations[unitId] = { sp: {}, tp: "" };
+      
+      student.evaluations[unitId].sp[sp] = !student.evaluations[unitId].sp[sp];
+      autoTP(student, unitId);
+      saveCurrentGradeData();
+      renderStudentCards();
     }
+
+    function setTPMobile(stuId, unitId, tp) {
+      const student = gradeDataStore[currentGrade].find(s => s.id === stuId);
+      if (!student) return;
+      if (!student.evaluations[unitId]) student.evaluations[unitId] = { sp: {}, tp: "" };
+
+      student.evaluations[unitId].tp = tp;
+      saveCurrentGradeData();
+      renderStudentCards();
+      showToast(`已评级 ${student.name} 为 ${tp}`);
+    }
+
+    function autoTP(student, unitId) {
+      const units = CURRICULUM[currentSubject][currentGrade] || [];
+      const unitObj = units.find(u => u.id === unitId);
+      if (!unitObj) return;
+
+      const checkedCount = unitObj.sp.filter(sp => student.evaluations[unitId].sp[sp]).length;
+      const ratio = checkedCount / unitObj.sp.length;
+
+      if (ratio === 1) student.evaluations[unitId].tp = "TP5";
+      else if (ratio >= 0.7) student.evaluations[unitId].tp = "TP4";
+      else if (ratio >= 0.4) student.evaluations[unitId].tp = "TP3";
+      else if (ratio > 0) student.evaluations[unitId].tp = "TP2";
+    }
+
+    function batchToggleAllSP(isChecked) {
+      const unitId = document.getElementById("unit-select").value;
+      const units = CURRICULUM[currentSubject][currentGrade] || [];
+      const unitObj = units.find(u => u.id === unitId);
+      if (!unitObj) return;
+
+      gradeDataStore[currentGrade].forEach(s => {
+        if (!s.evaluations[unitId]) s.evaluations[unitId] = { sp: {}, tp: "" };
+        unitObj.sp.forEach(sp => s.evaluations[unitId].sp[sp] = isChecked);
+        autoTP(s, unitId);
+      });
+
+      saveCurrentGradeData();
+      renderStudentCards();
+      showToast(isChecked ? "已为全班勾选所有 SP" : "已清空 SP 记录");
+    }
+
+    function toggleSubject() {
+      currentSubject = currentSubject === "science" ? "math" : "science";
+      loadGradeData(currentSubject, currentGrade);
+      renderHeader();
+      setupUnitDropdown();
+      renderStudentCards();
+      showToast(`已切换至 ${currentSubject === 'science' ? '科学' : '数学'} 科目`);
+    }
+
+    function changeGrade(val) {
+      currentGrade = val;
+      loadGradeData(currentSubject, currentGrade);
+      renderHeader();
+      setupUnitDropdown();
+      renderStudentCards();
+      showToast(`已切换至 ${currentGrade} 年级`);
+    }
+
+    function onUnitChange() {
+      renderStudentCards();
+    }
+
+    function filterStudents(query) {
+      const q = query.toLowerCase().trim();
+      document.querySelectorAll(".student-card-item").forEach(card => {
+        const name = card.getAttribute("data-name").toLowerCase();
+        card.style.display = name.includes(q) ? "block" : "none";
+      });
+    }
+
+    function switchTab(tab) {
+      ['transit','analytics','settings'].forEach(t => {
+        document.getElementById(`tab-content-${t}`).classList.add("hidden");
+        document.getElementById(`nav-btn-${t}`).className = "flex flex-col items-center gap-0.5 text-slate-400";
+      });
+
+      document.getElementById(`tab-content-${tab}`).classList.remove("hidden");
+      document.getElementById(`nav-btn-${tab}`).className = "flex flex-col items-center gap-0.5 text-indigo-600";
+
+      if (tab === 'analytics') renderAnalytics();
+    }
+
+    function saveMobileSettings() {
+      const teacher = document.getElementById("m-input-teacher").value.trim();
+      const cls = document.getElementById("m-input-class").value.trim();
+      
+      appSettings.teachers[currentGrade] = { teacher: teacher, className: cls };
+      saveSettings();
+      renderHeader();
+      showToast("班级设置已更新");
+    }
+
+    function addStudentMobile() {
+      const input = document.getElementById("m-add-student-input");
+      const name = input.value.trim();
+      if (!name) return;
+
+      gradeDataStore[currentGrade].push({ id: "STU_" + Date.now(), name: name, evaluations: {} });
+      saveCurrentGradeData();
+      input.value = "";
+      renderStudentCards();
+      showToast(`已添加学生: ${name}`);
+    }
+
+    /****************************************************************
+     * 分析与图表 (Analytics)
+     ****************************************************************/
+    function renderAnalytics() {
+      const students = gradeDataStore[currentGrade] || [];
+      const units = CURRICULUM[currentSubject][currentGrade] || [];
+
+      let counts = { TP1: 0, TP2: 0, TP3: 0, TP4: 0, TP5: 0, TP6: 0 };
+      let totalSum = 0, evalCount = 0;
+      const helpList = [];
+
+      students.forEach(s => {
+        units.forEach(u => {
+          const tp = s.evaluations[u.id]?.tp;
+          if (tp && counts[tp] !== undefined) {
+            counts[tp]++;
+            totalSum += parseInt(tp.replace("TP", ""));
+            evalCount++;
+
+            if (['TP1','TP2','TP3'].includes(tp)) {
+              helpList.push({ name: s.name, unit: u.name, tp: tp });
+            }
+          }
+        });
+      });
+
+      const passCount = counts.TP3 + counts.TP4 + counts.TP5 + counts.TP6;
+      const needHelp = counts.TP1 + counts.TP2;
+      const passRate = evalCount > 0 ? Math.round((passCount / evalCount) * 100) : 0;
+      const avg = evalCount > 0 ? (totalSum / evalCount).toFixed(1) : "0.0";
+
+      document.getElementById("m-kpi-total").innerText = students.length + " 人";
+      document.getElementById("m-kpi-pass").innerText = passRate + "%";
+      document.getElementById("m-kpi-help").innerText = needHelp + " 人次";
+      document.getElementById("m-kpi-avg").innerText = "TP " + avg;
+
+      // 渲染 Chart.js 图表
+      const ctx = document.getElementById("mobile-tp-chart").getContext("2d");
+      if (chartInstance) chartInstance.destroy();
+      chartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: ['TP1','TP2','TP3','TP4','TP5','TP6'],
+          datasets: [{
+            data: [counts.TP1, counts.TP2, counts.TP3, counts.TP4, counts.TP5, counts.TP6],
+            backgroundColor: ['#fecaca', '#fed7aa', '#fef08a', '#bbf7d0', '#bfdbfe', '#e9d5ff']
+          }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+      });
+
+      // 渲染列表
+      const helpContainer = document.getElementById("m-intervention-list");
+      helpContainer.innerHTML = helpList.length === 0 ? '<p class="text-slate-400">目前暂无需关注的学生。</p>' : '';
+      helpList.slice(0, 8).forEach(item => {
+        const div = document.createElement("div");
+        div.className = "flex items-center justify-between p-2 bg-slate-50 rounded-lg border border-slate-100";
+        div.innerHTML = `<span><b>${item.name}</b> (${item.unit})</span> <span class="font-bold text-rose-600">${item.tp}</span>`;
+        helpContainer.appendChild(div);
+      });
+    }
+
+    /****************************************************************
+     * 备份与导出
+     ****************************************************************/
+    function exportBackupJSON() {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ settings: appSettings, gradeStore: gradeDataStore }));
+      const a = document.createElement("a");
+      a.href = dataStr;
+      a.download = `PBD_Mobile_Backup_${Date.now()}.json`;
+      a.click();
+    }
+
+    function importBackupJSON(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        try {
+          const res = JSON.parse(evt.target.result);
+          if (res.settings) appSettings = res.settings;
+          if (res.gradeStore) gradeDataStore = res.gradeStore;
+          saveSettings();
+          saveCurrentGradeData();
+          init();
+          showToast("已成功恢复备份！");
+        } catch(err) { alert("文件格式不准确！"); }
+      };
+      reader.readAsText(file);
+    }
+
+    function exportDataCSV() {
+      const students = gradeDataStore[currentGrade] || [];
+      const units = CURRICULUM[currentSubject][currentGrade] || [];
+      let csv = "\uFEFF序,姓名," + units.map(u => `"${u.name}"`).join(",") + "\n";
+      students.forEach((s, i) => {
+        let row = [`${i+1}`, `"${s.name}"`];
+        units.forEach(u => row.push(`"${s.evaluations[u.id]?.tp || ''}"`));
+        csv += row.join(",") + "\n";
+      });
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `PBD_${currentGrade}M_${currentSubject}.csv`;
+      a.click();
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById("toast");
+      document.getElementById("toast-msg").innerText = msg;
+      toast.classList.remove("opacity-0");
+      setTimeout(() => toast.classList.add("opacity-0"), 2500);
+    }
+
+    window.onload = init;
   </script>
 </body>
 </html>
